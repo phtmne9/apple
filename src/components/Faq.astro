@@ -1,0 +1,41 @@
+---
+import type { FaqItem } from '../i18n/faq';
+
+interface Props {
+  items: FaqItem[];
+}
+const { items } = Astro.props;
+---
+
+<div class="faq">
+  {items.map((item) => (
+    <details class="faq__item">
+      <summary>{item.q}</summary>
+      <p>{item.a}</p>
+    </details>
+  ))}
+</div>
+
+<style>
+  .faq { display: flex; flex-direction: column; gap: 0.7rem; margin-top: 1.4rem; }
+  .faq__item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.9rem 1.2rem;
+  }
+  .faq__item summary {
+    font-family: var(--font-display);
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--ink);
+    font-size: 1.02rem;
+  }
+  .faq__item summary::marker { color: var(--apple); }
+  .faq__item[open] summary { margin-bottom: 0.6rem; }
+  .faq__item p {
+    margin: 0;
+    color: var(--ink-muted);
+    max-width: 62ch;
+  }
+</style>

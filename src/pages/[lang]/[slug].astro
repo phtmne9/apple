@@ -1,0 +1,110 @@
+---
+import { getCollection, render } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+import Faq from '../../components/Faq.astro';
+import { ui, type Locale } from '../../i18n/ui';
+import { faq } from '../../i18n/faq';
+import { pagePath, withBase } from '../../lib/paths';
+
+const backLabel: Record<Locale, string> = {
+  ru: '← На главную',
+  kk: '← Басты бетке',
+  en: '← Back to home',
+};
+
+export async function getStaticPaths() {
+  const standaloneSlugs = ['dzhangaliev', 'faq', 'istochniki'];
+  const allPages = await getCollection('pages');
+  return allPages
+    .filter((p) => p.id.includes('/'))
+    .filter((p) => standaloneSlugs.includes(p.id.split('/')[1]))
+    .map((p) => {
+      const [locale, slug] = p.id.split('/');
+      return { params: { lang: locale, slug }, props: { entry: p } };
+    });
+}
+
+const { entry } = Astro.props;
+const locale = Astro.params.lang as Locale;
+const slug = Astro.params.slug!;
+const { Content } = await render(entry);
+const t = ui[locale];
+
+const dzhangalievPhotoAlt: Record<Locale, string> = {
+  ru: 'Мемориальная экспозиция Аймака Джангалиева в визит-центре',
+  kk: 'Аймақ Жангалиевтің мемориалдық экспозициясы визит-орталығында',
+  en: 'The Aimak Dzhangaliev memorial exhibit at the visitor centre',
+};
+
+const faqItems = slug === 'faq' ? faq[locale] : null;
+const faqSchema = faqItems
+  ? {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqItems.map((item) => ({
+        '@type': 'Question',
+        name: item.q,
+        acceptedAnswer: { '@type': 'Answer', text: item.a },
+      })),
+    }
+  : undefined;
+
+const istochnikiSchema = slug === 'istochniki'
+  ? {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      name: entry.data.title,
+      about: { '@type': 'Thing', name: 'Malus sieversii', sameAs: 'https://en.wikipedia.org/wiki/Malus_sieversii' },
+      citation: [
+        { '@type': 'WebSite', name: 'ile-alatau.kz', url: 'https://www.ile-alatau.kz/' },
+        { '@type': 'ScholarlyArticle', name: 'Генетический резерват «Кузнецово ущелье»', url: 'https://articlekz.com/article/8869' },
+        { '@type': 'NewsArticle', name: 'Saving the Apple\'s Ancient Ancestor in the Forests of Kazakhstan', url: 'https://www.smithsonianmag.com/travel/saving-the-apples-ancient-ancestor-in-the-forests-of-kazakhstan-180983493/' },
+        { '@type': 'NewsArticle', name: 'Tracing Apple\'s Journey from Ancient Kazakhstan to Modern Cultivation', url: 'https://astanatimes.com/2024/08/tracing-apples-journey-from-ancient-kazakhstan-to-modern-cultivation/' },
+        { '@type': 'NewsArticle', name: 'Яблоня Сиверса зацвела в Алматы. Ущелье Кузнецова откроется для научного туризма', url: 'https://kz.mir24.tv/news/16633292/yablonya-siversa-zacvela-v-almaty.-gornoe-ushele-kuznecova-otkroetsya-dlya-nauchnogo-turizma' },
+        { '@type': 'NewsArticle', name: 'Иле-Алатауский государственный национальный природный парк отмечает 30-летие', url: 'https://qonaevtv.kz/ru/news/society-and-politics/1940-ile-alatauskij-gosudarstvennyj-natsionalnyj-prirodnyj-park-otmechaet-30-letie' },
+        { '@type': 'NewsArticle', name: 'Новый туристический маршрут запустят в Иле-Алатауском нацпарке', url: 'https://24.kz/ru/news/social/709106-novyj-turisticheskij-marshrut-zapustyat-v-ile-alatauskom-natsparke' },
+      ],
+    }
+  : undefined;
+---
+
+<Layout
+  locale={locale}
+  slug={slug}
+  title={entry.data.title}
+  description={entry.data.description}
+  extraJsonLd={faqSchema ?? istochnikiSchema}
+>
+  {slug === 'dzhangaliev' ? (
+    <article class="feature">
+      <div class="wrap feature__head">
+        <a class="back-link" href={pagePath(locale)}>{backLabel[locale]}</a>
+        <h1 class="feature__title">{entry.data.title}</h1>
+        <p class="feature__dek">{entry.data.description}</p>
+        {entry.data.translationStatus === 'draft' && <p class="draft-flag">{t.draftNotice}</p>}
+      </div>
+
+      <figure class="feature__figure">
+        <img src={withBase('/images/dzhangaliev-museum.webp')} alt={dzhangalievPhotoAlt[locale]} />
+        <figcaption>{dzhangalievPhotoAlt[locale]}</figcaption>
+      </figure>
+
+      <div class="wrap feature__body">
+        <div class="prose">
+          <Content />
+        </div>
+      </div>
+    </article>
+  ) : (
+    <div class="wrap" style="padding-top: 2.4rem;">
+      <a class="back-link" href={pagePath(locale)}>{backLabel[locale]}</a>
+      <h1>{entry.data.title}</h1>
+      {entry.data.translationStatus === 'draft' && <p class="draft-flag">{t.draftNotice}</p>}
+      <div class="prose">
+        <Content />
+      </div>
+
+      {faqItems && <Faq items={faqItems} />}
+    </div>
+  )}
+</Layout>

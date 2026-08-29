@@ -1,0 +1,279 @@
+---
+import 'leaflet/dist/leaflet.css';
+import { withBase } from '../lib/paths';
+import type { TrailTabsCopy } from '../i18n/trailTabs';
+
+interface Props {
+  copy: TrailTabsCopy;
+  mapQuery: string;
+}
+const { copy, mapQuery } = Astro.props;
+
+const images: Record<string, string> = {
+  trail: withBase('/images/route.webp'),
+  route: withBase('/images/card3.webp'),
+  center: withBase('/images/visit-centre.webp'),
+};
+
+const encodedQuery = encodeURIComponent(mapQuery);
+const openSrc = `https://www.google.com/maps/search/?api=1&query=${encodedQuery}`;
+
+// The "center" marker below is the real, published GPS location of the
+// planned visit-center building (43.360518, 77.679148). The trail line and
+// the reserve-area polygon are still illustrative approximations — no exact
+// survey data for the walking path or the reserve boundary is published —
+// but shifted to sit in the correct real neighborhood around that point.
+const mapCenter: [number, number] = [43.357518, 77.683148];
+const geo = {
+  trail: [
+    [43.357018, 77.671648],
+    [43.356118, 77.674648],
+    [43.356618, 77.677648],
+    [43.354318, 77.679648],
+    [43.352718, 77.679348],
+    [43.350618, 77.681648],
+    [43.348818, 77.682348],
+    [43.347718, 77.684948],
+    [43.345318, 77.686348],
+    [43.343518, 77.687748],
+  ] as [number, number][],
+  route: {
+    points: [
+      [43.362318, 77.675648],
+      [43.363718, 77.679148],
+      [43.363218, 77.683648],
+      [43.361318, 77.687348],
+      [43.357018, 77.688948],
+      [43.352718, 77.687948],
+      [43.349618, 77.684948],
+      [43.349318, 77.680648],
+      [43.351318, 77.676948],
+      [43.355318, 77.674348],
+      [43.359018, 77.673648],
+    ] as [number, number][],
+  },
+  center: { point: [43.360518, 77.679148] as [number, number] },
+};
+---
+
+<div class="trail-tabs">
+  <div class="trail-tabs__chips" role="tablist">
+    {copy.tabs.map((tab, i) => (
+      <button
+        type="button"
+        class="trail-tabs__chip"
+        class:list={{ 'is-active': i === 0 }}
+        data-tab={tab.id}
+        role="tab"
+        aria-selected={i === 0 ? 'true' : 'false'}
+      >
+        {tab.label}
+      </button>
+    ))}
+  </div>
+
+  <div class="trail-tabs__divider"></div>
+
+  {copy.tabs.map((tab, i) => (
+    <div class="trail-tabs__panel" class:list={{ 'is-active': i === 0 }} data-panel={tab.id}>
+      <div class="trail-tabs__text">
+        <h3>{tab.heading}</h3>
+        {tab.paragraphs.map((p) => <p>{p}</p>)}
+      </div>
+      <div class="trail-tabs__image" style={`background-image: url('${images[tab.id]}')`}></div>
+    </div>
+  ))}
+
+  <div class="trail-tabs__divider"></div>
+
+  <div class="trail-tabs__map">
+    <div
+      class="trail-tabs__leaflet"
+      data-center={JSON.stringify(mapCenter)}
+      data-geo={JSON.stringify(geo)}
+      data-open-href={openSrc}
+      role="img"
+      aria-label={copy.mapLabel}
+    ></div>
+  </div>
+</div>
+
+<script>
+  import L from 'leaflet';
+
+  interface GeoData {
+    trail: [number, number][];
+    route: { points: [number, number][] };
+    center: { point: [number, number] };
+  }
+
+  document.querySelectorAll<HTMLElement>('.trail-tabs').forEach((scene) => {
+    const chips = scene.querySelectorAll<HTMLButtonElement>('.trail-tabs__chip');
+    const panels = scene.querySelectorAll<HTMLElement>('.trail-tabs__panel');
+    const mapEl = scene.querySelector<HTMLElement>('.trail-tabs__leaflet');
+
+    chips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const id = chip.dataset.tab;
+        chips.forEach((c) => {
+          c.classList.toggle('is-active', c === chip);
+          c.setAttribute('aria-selected', c === chip ? 'true' : 'false');
+        });
+        panels.forEach((p) => p.classList.toggle('is-active', p.dataset.panel === id));
+        showLayer(id);
+      });
+    });
+
+    if (!mapEl) return;
+    const center = JSON.parse(mapEl.dataset.center!) as [number, number];
+    const geo = JSON.parse(mapEl.dataset.geo!) as GeoData;
+
+    const map = L.map(mapEl, { scrollWheelZoom: false }).setView(center, 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19,
+    }).addTo(map);
+
+    const forest = getComputedStyle(document.documentElement).getPropertyValue('--forest').trim() || '#3D5A40';
+    const forestDeep = getComputedStyle(document.documentElement).getPropertyValue('--forest-deep').trim() || '#2C4230';
+    const apple = getComputedStyle(document.documentElement).getPropertyValue('--apple').trim() || '#A23B2E';
+
+    const pinIcon = L.divIcon({
+      className: 'trail-tabs__pin',
+      html: `<svg width="34" height="44" viewBox="0 0 34 44" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 3px 4px rgba(20,18,14,0.35));">
+        <path d="M17 0C7.6 0 0 7.6 0 17c0 12.4 14.3 24.6 16.2 26.2.5.4 1.1.4 1.6 0C19.7 41.6 34 29.4 34 17 34 7.6 26.4 0 17 0z" fill="${apple}"/>
+        <circle cx="17" cy="17" r="7.5" fill="#fff"/>
+      </svg>`,
+      iconSize: [34, 44],
+      iconAnchor: [17, 42],
+    });
+
+    const layers: Record<string, L.Layer> = {
+      trail: L.featureGroup([
+        L.polyline(geo.trail, { color: '#fff', weight: 9, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }),
+        L.polyline(geo.trail, { color: forestDeep, weight: 5, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }),
+      ]),
+      route: L.polygon(geo.route.points, {
+        color: forestDeep,
+        weight: 2,
+        opacity: 0.75,
+        dashArray: '7 7',
+        lineJoin: 'round',
+        fillColor: forest,
+        fillOpacity: 0.15,
+      }),
+      center: L.marker(geo.center.point, { icon: pinIcon }),
+    };
+
+    let activeLayer: L.Layer | null = null;
+    function showLayer(id: string | undefined) {
+      if (activeLayer) map.removeLayer(activeLayer);
+      const layer = id ? layers[id] : undefined;
+      if (!layer) return;
+      layer.addTo(map);
+      activeLayer = layer;
+
+      if (id === 'center') {
+        map.setView(geo.center.point, 15);
+      } else if (typeof (layer as { getBounds?: () => L.LatLngBounds }).getBounds === 'function') {
+        map.fitBounds((layer as { getBounds: () => L.LatLngBounds }).getBounds(), { padding: [32, 32] });
+      }
+    }
+    showLayer(chips[0]?.dataset.tab);
+
+    const openHref = mapEl.dataset.openHref;
+    if (openHref) {
+      map.on('click', () => window.open(openHref, '_blank', 'noopener'));
+      mapEl.style.cursor = 'pointer';
+    }
+
+    new ResizeObserver(() => map.invalidateSize()).observe(mapEl);
+  });
+</script>
+
+<style>
+  .trail-tabs { margin-top: 4.4rem; }
+  .trail-tabs__divider {
+    position: relative;
+    z-index: 2;
+    width: calc(100% + 4rem);
+    margin: 1.8rem -2rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .trail-tabs__chips {
+    display: flex;
+    justify-content: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 2.2rem;
+  }
+  .trail-tabs__chip {
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--ink-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.55em 1.3em;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+  .trail-tabs__chip:hover { border-color: var(--forest); color: var(--forest-deep); }
+  .trail-tabs__chip.is-active {
+    background: var(--forest-deep);
+    border-color: var(--forest-deep);
+    color: #fff;
+  }
+
+  .trail-tabs__panel {
+    display: none;
+    align-items: stretch;
+    text-align: left;
+  }
+  .trail-tabs__panel.is-active { display: flex; }
+  .trail-tabs__text {
+    flex: 1 1 380px;
+    padding-right: 2.5rem;
+    padding-top: 1.8rem;
+    padding-bottom: 1.8rem;
+  }
+  .trail-tabs__text h3 {
+    font-size: 1.4rem;
+    margin: 0 0 0.8rem;
+  }
+  .trail-tabs__text p {
+    margin: 0 0 0.9rem;
+    color: var(--ink-muted);
+    max-width: 60ch;
+  }
+  .trail-tabs__image {
+    flex: 1 1 320px;
+    margin: -1.8rem -2rem -1.8rem 2.5rem;
+    border-radius: 0;
+    background-size: cover;
+    background-position: center;
+    background-color: var(--surface-2);
+  }
+
+  .trail-tabs__map {
+    text-align: center;
+  }
+  .trail-tabs__leaflet {
+    width: calc(100% + 4rem);
+    height: 360px;
+    margin: -1.8rem -2rem 2.5rem;
+    background: var(--surface-2);
+  }
+
+  @media (max-width: 760px) {
+    .trail-tabs__panel { flex-direction: column; align-items: stretch; }
+    .trail-tabs__text {
+      padding-right: 0;
+      padding-bottom: 1.5rem;
+    }
+    .trail-tabs__image { margin: 1.5rem 0 0; aspect-ratio: 4 / 3; }
+    .trail-tabs__leaflet { height: 260px; }
+  }
+</style>

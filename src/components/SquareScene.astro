@@ -1,0 +1,173 @@
+---
+import { withBase } from '../lib/paths';
+import type { ConservationStat } from '../i18n/conservationStats';
+
+interface Props {
+  stats: ConservationStat[];
+}
+const { stats } = Astro.props;
+
+const images = [
+  withBase('/images/1card.webp'),
+  withBase('/images/card2.webp'),
+  withBase('/images/card3.webp'),
+];
+---
+
+<div class="square-scene-outer">
+  <div class="square-scene" data-scene-track>
+    {stats.map((stat, i) => (
+      <div class="square-scene__item">
+        <div class="square-scene__sq" style={`background-image: url('${images[i]}')`}>
+          <div class="square-scene__scrim"></div>
+          <p class="square-scene__value">{stat.value}</p>
+        </div>
+        <p class="square-scene__detail">{stat.detail}</p>
+      </div>
+    ))}
+  </div>
+
+  <div class="square-scene__dots" data-scene-dots aria-hidden="true">
+    {stats.map((_, i) => (
+      <span class="square-scene__dot" data-dot data-index={i}></span>
+    ))}
+  </div>
+</div>
+
+<script>
+  function initSquareScene(outer: HTMLElement) {
+    const track = outer.querySelector<HTMLElement>('[data-scene-track]');
+    const dots = Array.from(outer.querySelectorAll<HTMLElement>('[data-dot]'));
+    if (!track || !dots.length) return;
+
+    const setActive = () => {
+      const items = Array.from(track.children) as HTMLElement[];
+      const trackCenter = track.scrollLeft + track.clientWidth / 2;
+      let closest = 0;
+      let closestDist = Infinity;
+      items.forEach((item, i) => {
+        const dist = Math.abs(item.offsetLeft + item.offsetWidth / 2 - trackCenter);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closest = i;
+        }
+      });
+      dots.forEach((dot, i) => dot.classList.toggle('is-active', i === closest));
+    };
+
+    track.addEventListener('scroll', () => {
+      window.requestAnimationFrame(setActive);
+    }, { passive: true });
+
+    dots.forEach((dot, i) => {
+      dot.addEventListener('click', () => {
+        const item = track.children[i] as HTMLElement | undefined;
+        if (item) track.scrollTo({ left: item.offsetLeft, behavior: 'smooth' });
+      });
+    });
+
+    setActive();
+  }
+
+  document.querySelectorAll<HTMLElement>('.square-scene-outer').forEach(initSquareScene);
+</script>
+
+<style>
+  .square-scene-outer {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-top: 4.5rem;
+  }
+  .square-scene {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 1.5rem;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+  .square-scene__item {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .square-scene__sq {
+    position: relative;
+    aspect-ratio: 1.3 / 1;
+    border-radius: 16px;
+    background-color: var(--surface-2);
+    background-size: cover;
+    background-position: center;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .square-scene__scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(20, 18, 14, 0.45);
+  }
+  .square-scene__value {
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    padding: 1.1rem 1.2rem;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.5rem;
+    line-height: 1.2;
+    color: #fff;
+  }
+  .square-scene__detail {
+    margin: 0.9rem 0 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .square-scene__dots {
+    display: none;
+  }
+
+  @media (max-width: 640px) {
+    .square-scene {
+      flex-wrap: nowrap;
+      gap: 1rem;
+      padding: 0 1.2rem;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .square-scene::-webkit-scrollbar { display: none; }
+    .square-scene__item {
+      flex: 0 0 80vw;
+      scroll-snap-align: center;
+      scroll-snap-stop: always;
+    }
+    .square-scene__sq { border-radius: 12px; }
+    .square-scene__value { padding: 0.8rem 0.8rem; font-size: 1.1rem; }
+    .square-scene__detail { font-size: 0.95rem; margin-top: 0.6rem; }
+
+    .square-scene__dots {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 1.1rem;
+    }
+    .square-scene__dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--border);
+      cursor: pointer;
+      transition: background-color 0.15s ease, transform 0.15s ease;
+    }
+    .square-scene__dot.is-active {
+      background: var(--forest-deep);
+      transform: scale(1.3);
+    }
+  }
+</style>

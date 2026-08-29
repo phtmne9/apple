@@ -1,0 +1,116 @@
+---
+import { getCollection, render } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+import SquareScene from '../../components/SquareScene.astro';
+import TrailTabs from '../../components/TrailTabs.astro';
+import RulesCards from '../../components/RulesCards.astro';
+import { locales, type Locale } from '../../i18n/ui';
+import { home } from '../../i18n/home';
+import { conservationStats } from '../../i18n/conservationStats';
+import { trailTabs } from '../../i18n/trailTabs';
+import { visitRules } from '../../i18n/visitRules';
+import { pagePath, withBase } from '../../lib/paths';
+
+export async function getStaticPaths() {
+  return locales.map((locale) => ({ params: { lang: locale } }));
+}
+
+const locale = Astro.params.lang as Locale;
+const allPages = await getCollection('pages');
+const find = (slug: string) => {
+  const entry = allPages.find((p) => p.id === `${locale}/${slug}`);
+  if (!entry) throw new Error(`Missing content "${slug}" for locale "${locale}"`);
+  return entry;
+};
+
+const heroEntry = allPages.find((p) => p.id === locale);
+if (!heroEntry) throw new Error(`Missing hero content for locale "${locale}"`);
+
+const speciesEntry = find('o-yabloni');
+const sohranenieEntry = find('sohranenie');
+const tropaEntry = find('tropa');
+const pravilaEntry = find('pravila-poseshcheniya');
+const volunteersEntry = find('volonterskie-programmy');
+const involveEntry = find('volonterstvo');
+
+const { Content: HeroContent } = await render(heroEntry);
+const { Content: SpeciesContent } = await render(speciesEntry);
+const { Content: TropaContent } = await render(tropaEntry);
+const { Content: PravilaContent } = await render(pravilaEntry);
+const { Content: VolunteersContent } = await render(volunteersEntry);
+const { Content: InvolveContent } = await render(involveEntry);
+
+const h = home[locale];
+
+const mapQuery: Record<Locale, string> = {
+  ru: 'Тургенское ущелье, Алматинская область',
+  kk: 'Түрген шатқалы, Алматы облысы',
+  en: 'Turgen Gorge, Kazakhstan',
+}[locale];
+---
+
+<Layout locale={locale} slug="" title={heroEntry.data.title} description={heroEntry.data.description} overlayHeader>
+  <section class="hero" id="hero">
+    <video
+      class="hero__video"
+      src={withBase('/video/apple-cinematic.mp4')}
+      poster={withBase('/video/apple-cinematic-poster.jpg')}
+      autoplay
+      muted
+      playsinline
+    />
+    <div class="hero__scrim"></div>
+    <div class="hero__inner">
+      <div class="hero__text" data-reveal>
+        <h1>{heroEntry.data.title}</h1>
+        <div class="hero__lede">
+          <HeroContent />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="species" data-reveal>
+    <div class="wrap">
+      <h2>{h.headings.species}</h2>
+      <div class="prose"><SpeciesContent /></div>
+    </div>
+    <div class="full-divider"></div>
+    <div class="wrap wrap--plain">
+      <div class="prose"><h2>{sohranenieEntry.data.title}</h2></div>
+      <SquareScene stats={conservationStats[locale]} />
+    </div>
+  </section>
+
+  <section class="section section--alt" id="trail" data-reveal>
+    <div class="wrap">
+      <TrailTabs copy={trailTabs[locale]} mapQuery={mapQuery} />
+
+      <div class="season-hero">
+        <video class="season-hero__video" src={withBase('/video/ann.mp4')} muted playsinline data-scroll-play></video>
+        <div class="season-hero__scrim"></div>
+        <div class="season-hero__inner prose"><TropaContent /></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="involve" data-reveal>
+    <div class="wrap">
+      <h2>{volunteersEntry.data.title}</h2>
+      <div class="involve-panel">
+        <div class="involve-panel__text prose"><VolunteersContent /></div>
+        <div class="involve-panel__image" style={`background-image: url('${withBase('/images/volunteers.webp')}')`}></div>
+      </div>
+      <div class="prose"><InvolveContent /></div>
+      <a class="cta-link" href={pagePath(locale, 'dzhangaliev')}>{h.cta.dzhangaliev}</a>
+    </div>
+  </section>
+
+  <section class="rules-hero" id="rules" data-reveal style={`background-image: url('${withBase('/images/rules-bg.webp')}')`}>
+    <div class="rules-hero__scrim"></div>
+    <div class="rules-hero__inner">
+      <div class="prose rules-hero__prose"><PravilaContent /></div>
+      <RulesCards copy={visitRules[locale]} />
+    </div>
+  </section>
+</Layout>
